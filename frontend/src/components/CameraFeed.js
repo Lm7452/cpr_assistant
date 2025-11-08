@@ -1,26 +1,35 @@
 import React, { useEffect, forwardRef } from 'react';
 
-const CameraFeed = forwardRef((props, ref) => {
+const CameraFeed = forwardRef(({ facingMode }, ref) => {
   useEffect(() => {
+    // Function to stop the current video stream
+    const stopStream = () => {
+      if (ref.current && ref.current.srcObject) {
+        ref.current.srcObject.getTracks().forEach(track => track.stop());
+      }
+    };
+
     // Function to get camera access
     const getCamera = async () => {
       if (!ref.current) {
         return;
       }
+      
+      // Stop any existing stream before getting a new one
+      stopStream();
+
       try {
-        // Request the user's camera
+        // --- MODIFIED: Use the facingMode prop ---
         const stream = await navigator.mediaDevices.getUserMedia({
           video: {
-            width: { ideal: 640 }, // Ask for a reasonable size
+            width: { ideal: 640 },
             height: { ideal: 480 },
-            facingMode: "user" // Use front camera
+            facingMode: facingMode // Use the prop here
           }
         });
         
-        // Attach the stream to the video element
         ref.current.srcObject = stream;
         
-        // Play the video
         ref.current.play().catch(err => {
           console.error("Error playing video:", err);
         });
@@ -35,11 +44,11 @@ const CameraFeed = forwardRef((props, ref) => {
 
     // Cleanup: stop the stream when the component unmounts
     return () => {
-      if (ref.current && ref.current.srcObject) {
-        ref.current.srcObject.getTracks().forEach(track => track.stop());
-      }
+      stopStream();
     };
-  }, [ref]); // Re-run if the ref changes
+    
+  // --- MODIFIED: Re-run this effect if facingMode changes ---
+  }, [ref, facingMode]); 
 
   return (
     <video
@@ -47,7 +56,9 @@ const CameraFeed = forwardRef((props, ref) => {
       className="camera-feed"
       autoPlay
       playsInline
-      muted // Mute to allow autoplay in most browsers
+      muted
+      // We flip the video based on which camera is active
+      style={{ transform: facingMode === 'user' ? 'rotateY(180deg)' : 'none' }}
     />
   );
 });

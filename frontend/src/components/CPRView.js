@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react'; // 1. Import useCallback
+import React, { useState, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import CameraFeed from './CameraFeed';
 import FeedbackDisplay from './FeedbackDisplay';
@@ -11,24 +11,28 @@ function CPRView() {
   
   const mode = searchParams.get('mode') || 'feedback';
 
+  // --- NEW: State for camera direction ---
+  const [facingMode, setFacingMode] = useState("user"); // 'user' = front, 'environment' = back
+
   const [feedback, setFeedback] = useState({
     bpm: 0,
     count: 0,
     message: "Initializing...",
   });
 
-  // 2. Stabilize the onMessage function with useCallback
-  // This tells React to use the *exact same function* on every render.
-  // This is the key to breaking the re-render loop.
   const onSocketMessage = useCallback((data) => {
-    setFeedback(data); // Update state with data from backend
-  }, []); // The empty array [] means this function is created ONCE.
+    setFeedback(data);
+  }, []);
 
-  // 3. Pass the new, stable function to our hook
   useCPRWebSocket({
     videoRef,
     onMessage: onSocketMessage
   });
+
+  // --- NEW: Function to flip the camera ---
+  const toggleCamera = () => {
+    setFacingMode((prevMode) => (prevMode === "user" ? "environment" : "user"));
+  };
 
   const renderWalkthroughUI = () => (
     <div className="walkthrough-controls">
@@ -44,11 +48,17 @@ function CPRView() {
         count={feedback.count}
         message={feedback.message}
       />
-      {/* The CameraFeed will no longer be interrupted because
-        this parent component will stop re-rendering.
-      */}
-      <CameraFeed ref={videoRef} />
+      
+      {/* --- NEW: Button to flip camera --- */}
+      <button onClick={toggleCamera} className="flip-camera-button">
+        Flip Camera
+      </button>
+      
+      {/* --- MODIFIED: Pass facingMode to CameraFeed --- */}
+      <CameraFeed ref={videoRef} facingMode={facingMode} />
+      
       <OverlayCanvas />
+
       {mode === 'walkthrough' && renderWalkthroughUI()}
     </div>
   );
