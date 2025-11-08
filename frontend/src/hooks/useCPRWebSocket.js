@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 
 // Reset the URL back to the simple http/localhost version
-const WEBSOCKET_URL = "ws://localhost:8000/ws/cpr";
+const WEBSOCKET_URL = "wss://cpr-backend-697x.onrender.com/ws/cpr";
 const FRAME_INTERVAL_MS = 100; // Send ~10 frames per second
 
 function useCPRWebSocket({ videoRef, onMessage }) {
