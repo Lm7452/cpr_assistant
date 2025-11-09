@@ -1,9 +1,9 @@
 import { useEffect, useRef } from 'react';
 
 // Use localhost for local development
-const WEBSOCKET_URL = "ws://localhost:8000/ws/cpr";
+//const WEBSOCKET_URL = "ws://localhost:8000/ws/cpr";
 // Render deployment URL (commented out for local development):
-// const WEBSOCKET_URL = "wss://cpr-backend-697x.onrender.com/ws/cpr";
+const WEBSOCKET_URL = "wss://cpr-backend-697x.onrender.com/ws/cpr";
 const FRAME_INTERVAL_MS = 100; // Send ~10 frames per second
 
 function useCPRWebSocket({ videoRef, onMessage, showHands = false, blurFace = true, showFace = false }) {
