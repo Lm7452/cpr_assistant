@@ -19,9 +19,14 @@ function CPRView() {
     count: 0,
     message: "Initializing...",
   });
+  
+  const [annotatedFrame, setAnnotatedFrame] = useState(null);
 
   const onSocketMessage = useCallback((data) => {
     setFeedback(data);
+    if (data.annotated_frame) {
+      setAnnotatedFrame(data.annotated_frame);
+    }
   }, []);
 
   useCPRWebSocket({
@@ -55,7 +60,25 @@ function CPRView() {
       </button>
       
       {/* --- MODIFIED: Pass facingMode to CameraFeed --- */}
-      <CameraFeed ref={videoRef} facingMode={facingMode} />
+      <div style={{ position: 'relative', display: 'inline-block' }}>
+        <CameraFeed ref={videoRef} facingMode={facingMode} />
+        {annotatedFrame && (
+          <img
+            src={annotatedFrame}
+            alt="Annotated frame with MediaPipe landmarks"
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              pointerEvents: 'none',
+              zIndex: 1
+            }}
+          />
+        )}
+      </div>
       
       <OverlayCanvas />
 

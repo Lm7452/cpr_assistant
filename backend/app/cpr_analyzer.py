@@ -16,6 +16,19 @@ class CPRAnalyzer:
             min_tracking_confidence=0.5
         )
         
+        # Initialize MediaPipe Hands
+        self.mp_hands = mp.solutions.hands
+        self.hands = self.mp_hands.Hands(
+            static_image_mode=False,
+            max_num_hands=2,
+            min_detection_confidence=0.5,
+            min_tracking_confidence=0.5
+        )
+        
+        # Initialize MediaPipe drawing utilities
+        self.mp_drawing = mp.solutions.drawing_utils
+        self.mp_drawing_styles = mp.solutions.drawing_styles
+        
         # --- Existing Variables ---
         self.compression_times = []
         self.compression_count = 0
@@ -44,6 +57,18 @@ class CPRAnalyzer:
             return frame
         except Exception as e:
             print(f"Error decoding image: {e}")
+            return None
+
+    def encode_image(self, frame):
+        """Encodes a frame to base64 JPEG."""
+        try:
+            # Encode frame as JPEG
+            _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
+            # Convert to base64
+            img_base64 = base64.b64encode(buffer).decode('utf-8')
+            return f"data:image/jpeg;base64,{img_base64}"
+        except Exception as e:
+            print(f"Error encoding image: {e}")
             return None
 
     def calculate_bpm(self):
@@ -152,19 +177,11 @@ class CPRAnalyzer:
         # Add recoil feedback
         if self.compression_state == "down" and "Good rhythm" in self.message:
             self.message = "Good rhythm! (Recoil)"
-        # --- End of State Machine ---
-
-        # Update BPM and message
-        self.current_bpm = self.calculate_bpm()
-        self.message = self.get_feedback_message(self.current_bpm)
-        
-        # Add recoil feedback
-        if self.compression_state == "down" and "Good rhythm" in self.message:
-            self.message = "Good rhythm! (Recoil)"
 
     def process_frame(self, image_data_url: str):
         """Main processing function."""
         frame = self.decode_image(image_data_url)
+        annotated_frame = None
         
         # --- [THE FIX] ---
         # If the frame is bad, don't return None.
@@ -180,21 +197,63 @@ class CPRAnalyzer:
             # Convert to RGB for MediaPipe
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             
-            # Process the frame
-            results = self.pose.process(rgb_frame)
+            # Process the frame with Pose
+            pose_results = self.pose.process(rgb_frame)
             
-            if results.pose_landmarks:
+            # Process the frame with Hands
+            hands_results = self.hands.process(rgb_frame)
+            
+            # Create annotated frame
+            annotated_frame = rgb_frame.copy()
+            
+            # Draw pose landmarks on the RGB frame
+            if pose_results.pose_landmarks:
+                self.mp_drawing.draw_landmarks(
+                    annotated_frame,
+                    pose_results.pose_landmarks,
+                    self.mp_pose.POSE_CONNECTIONS
+                )
+            
+            # Draw hand landmarks on the RGB frame
+            if hands_results.multi_hand_landmarks:
+                for hand_landmarks in hands_results.multi_hand_landmarks:
+                    self.mp_drawing.draw_landmarks(
+                        annotated_frame,
+                        hand_landmarks,
+                        self.mp_hands.HAND_CONNECTIONS,
+                        self.mp_drawing_styles.get_default_hand_landmarks_style(),
+                        self.mp_drawing_styles.get_default_hand_connections_style()
+                    )
+            
+            # Convert back to BGR for encoding
+            annotated_frame = cv2.cvtColor(annotated_frame, cv2.COLOR_RGB2BGR)
+            
+            if pose_results.pose_landmarks:
                 # If we find a person, call our state function
-                self.update_cpr_state(results.pose_landmarks)
+                self.update_cpr_state(pose_results.pose_landmarks)
             else:
                 # If no landmarks are found, update the message
                 self.message = "Position body in frame"
         # --- [END OF FIX] ---
 
+        # Encode annotated frame if available
+        annotated_image_data = None
+        if annotated_frame is not None:
+            annotated_image_data = self.encode_image(annotated_frame)
+        elif frame is not None:
+            # If we have a frame but no annotations, still send it
+            annotated_image_data = self.encode_image(frame)
+
         # This return now happens every time, even if the frame was bad,
         # ensuring the frontend always gets an update.
-        return {
+        result = {
             "bpm": int(self.current_bpm),
             "count": self.compression_count,
             "message": self.message
         }
+        
+        # Add annotated frame if available
+        if annotated_image_data:
+            result["annotated_frame"] = annotated_image_data
+            
+        return result
