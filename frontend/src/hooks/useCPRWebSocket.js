@@ -1,12 +1,12 @@
 import { useEffect, useRef } from 'react';
 
 // Use localhost for local development
-// const WEBSOCKET_URL = "ws://localhost:8000/ws/cpr";
+const WEBSOCKET_URL = "ws://localhost:8000/ws/cpr";
 // Render deployment URL (commented out for local development):
-const WEBSOCKET_URL = "wss://cpr-backend-697x.onrender.com/ws/cpr";
+// const WEBSOCKET_URL = "wss://cpr-backend-697x.onrender.com/ws/cpr";
 const FRAME_INTERVAL_MS = 100; // Send ~10 frames per second
 
-function useCPRWebSocket({ videoRef, onMessage }) {
+function useCPRWebSocket({ videoRef, onMessage, showHands = false, blurFace = true, showFace = false }) {
   const ws = useRef(null); // Ref to hold the WebSocket instance
 
   useEffect(() => {
@@ -51,7 +51,7 @@ function useCPRWebSocket({ videoRef, onMessage }) {
     };
     
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [videoRef, onMessage]); // Re-run if these props change
+  }, [videoRef, onMessage, showHands, blurFace, showFace]); // Re-run if these props change
 
   const sendFrame = (video) => {
     // --- FIX 1: ADD A GUARD ---
@@ -75,10 +75,13 @@ function useCPRWebSocket({ videoRef, onMessage }) {
     // We'll use 0.7 (70%) quality.
     const dataURL = canvas.toDataURL('image/jpeg', 0.7);
     
-    // Send the base64-encoded image data
+    // Send the base64-encoded image data and dev mode settings
     if (ws.current && ws.current.readyState === WebSocket.OPEN) {
       ws.current.send(JSON.stringify({
-        image: dataURL
+        image: dataURL,
+        show_hands: showHands,
+        blur_face: blurFace,
+        show_face: showFace
       }));
     }
   };

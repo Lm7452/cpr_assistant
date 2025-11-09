@@ -16,6 +16,11 @@ function ModeSelection() {
         <strong>Feedback Mode</strong>
         <span>Immediate feedback for trained responders</span>
       </Link>
+      
+      <Link to="/cpr?mode=dev" className="mode-button">
+        <strong>Dev Mode</strong>
+        <span>Development mode with MediaPipe hands toggle</span>
+      </Link>
     </div>
   );
 }

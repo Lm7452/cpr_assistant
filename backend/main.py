@@ -21,14 +21,18 @@ async def websocket_endpoint(websocket: WebSocket):
             # Receive the JSON message from the client
             data = await websocket.receive_text()
             
-            # The client sends JSON: {"image": "base64..."}
-            image_data_url = json.loads(data).get("image")
+            # The client sends JSON: {"image": "base64...", "show_hands": true/false, "blur_face": true/false, "show_face": true/false}
+            message_data = json.loads(data)
+            image_data_url = message_data.get("image")
+            show_hands = message_data.get("show_hands", False)  # Default to False
+            blur_face = message_data.get("blur_face", True)  # Default to True (always blur in non-dev)
+            show_face = message_data.get("show_face", False)  # Default to False (never show unblurred in non-dev)
             
             if not image_data_url:
                 continue
 
             # Process the frame using our analyzer
-            feedback = analyzer.process_frame(image_data_url)
+            feedback = analyzer.process_frame(image_data_url, show_hands=show_hands, blur_face=blur_face, show_face=show_face)
             
             # --- [THE FIX] ---
             # Remove "if feedback:" and just send the result.

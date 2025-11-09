@@ -10,9 +10,13 @@ function CPRView() {
   const videoRef = useRef(null);
   
   const mode = searchParams.get('mode') || 'feedback';
+  const isDevMode = mode === 'dev';
 
   // --- NEW: State for camera direction ---
   const [facingMode, setFacingMode] = useState("user"); // 'user' = front, 'environment' = back
+
+  // --- Dev Mode: State for hands toggle (default: hands off) ---
+  const [showHands, setShowHands] = useState(false); // Default: hands OFF
 
   const [feedback, setFeedback] = useState({
     bpm: 0,
@@ -31,12 +35,20 @@ function CPRView() {
 
   useCPRWebSocket({
     videoRef,
-    onMessage: onSocketMessage
+    onMessage: onSocketMessage,
+    showHands: isDevMode ? showHands : false, // Only use toggle in dev mode, otherwise always false
+    blurFace: true, // Always blur face (for anonymity)
+    showFace: false // Never show unblurred face
   });
 
   // --- NEW: Function to flip the camera ---
   const toggleCamera = () => {
     setFacingMode((prevMode) => (prevMode === "user" ? "environment" : "user"));
+  };
+
+  // --- Dev Mode: Toggle function for hands ---
+  const toggleHands = () => {
+    setShowHands((prev) => !prev);
   };
 
   const renderWalkthroughUI = () => (
@@ -59,9 +71,25 @@ function CPRView() {
         Flip Camera
       </button>
       
+      {/* --- Dev Mode: Toggle button for hands (only shown in dev mode) --- */}
+      {isDevMode && (
+        <button onClick={toggleHands} className="toggle-hands-button" style={{
+          marginLeft: '10px',
+          padding: '8px 16px',
+          backgroundColor: showHands ? '#4CAF50' : '#666',
+          color: 'white',
+          border: 'none',
+          borderRadius: '4px',
+          cursor: 'pointer'
+        }}>
+          {showHands ? 'Hide Hands' : 'Show Hands'}
+        </button>
+      )}
+      
       {/* --- MODIFIED: Pass facingMode to CameraFeed --- */}
       <div style={{ position: 'relative', display: 'inline-block' }}>
         <CameraFeed ref={videoRef} facingMode={facingMode} />
+        {/* Show annotated frame (with conditional blur/hands) - always shown in non-dev, conditionally in dev */}
         {annotatedFrame && (
           <img
             src={annotatedFrame}

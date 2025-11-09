@@ -25,6 +25,13 @@ class CPRAnalyzer:
             min_tracking_confidence=0.5
         )
         
+        # Initialize MediaPipe Face Detection for anonymity (face blurring)
+        self.mp_face_detection = mp.solutions.face_detection
+        self.face_detection = self.mp_face_detection.FaceDetection(
+            model_selection=0,  # 0 for short-range, 1 for full-range
+            min_detection_confidence=0.5
+        )
+        
         # Initialize MediaPipe drawing utilities
         self.mp_drawing = mp.solutions.drawing_utils
         self.mp_drawing_styles = mp.solutions.drawing_styles
@@ -178,7 +185,7 @@ class CPRAnalyzer:
         if self.compression_state == "down" and "Good rhythm" in self.message:
             self.message = "Good rhythm! (Recoil)"
 
-    def process_frame(self, image_data_url: str):
+    def process_frame(self, image_data_url: str, show_hands: bool = False, blur_face: bool = True, show_face: bool = False):
         """Main processing function."""
         frame = self.decode_image(image_data_url)
         annotated_frame = None
@@ -203,19 +210,43 @@ class CPRAnalyzer:
             # Process the frame with Hands
             hands_results = self.hands.process(rgb_frame)
             
+            # Process the frame with Face Detection for anonymity
+            face_results = self.face_detection.process(rgb_frame)
+            
             # Create annotated frame
             annotated_frame = rgb_frame.copy()
             
-            # Draw pose landmarks on the RGB frame
-            if pose_results.pose_landmarks:
-                self.mp_drawing.draw_landmarks(
-                    annotated_frame,
-                    pose_results.pose_landmarks,
-                    self.mp_pose.POSE_CONNECTIONS
-                )
+            # Handle face blurring/showing (only blur if blur_face is True and show_face is False)
+            if face_results.detections and not show_face:
+                if blur_face:
+                    # Blur faces for anonymity
+                    h, w, _ = annotated_frame.shape
+                    for detection in face_results.detections:
+                        # Get face bounding box
+                        bbox = detection.location_data.relative_bounding_box
+                        x = int(bbox.xmin * w)
+                        y = int(bbox.ymin * h)
+                        width = int(bbox.width * w)
+                        height = int(bbox.height * h)
+                        
+                        # Add padding to blur area
+                        padding = 20
+                        x = max(0, x - padding)
+                        y = max(0, y - padding)
+                        width = min(w - x, width + 2 * padding)
+                        height = min(h - y, height + 2 * padding)
+                        
+                        # Extract face region
+                        face_region = annotated_frame[y:y+height, x:x+width]
+                        
+                        # Apply Gaussian blur to face region
+                        if face_region.size > 0:
+                            blurred_face = cv2.GaussianBlur(face_region, (99, 99), 30)
+                            annotated_frame[y:y+height, x:x+width] = blurred_face
+                # If blur_face is False and show_face is False, don't blur (show original face)
             
-            # Draw hand landmarks on the RGB frame
-            if hands_results.multi_hand_landmarks:
+            # Draw hand landmarks on the RGB frame (only if show_hands is True)
+            if show_hands and hands_results.multi_hand_landmarks:
                 for hand_landmarks in hands_results.multi_hand_landmarks:
                     self.mp_drawing.draw_landmarks(
                         annotated_frame,
